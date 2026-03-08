@@ -1,0 +1,160 @@
+function main(config) {
+  if (!config || !Array.isArray(config.proxies)) {
+    return config;
+  }
+
+  const regionRules = [
+    { regex: /(香港|hk|hong[\s-]?kong)/i, flag: "🇭🇰", area: "香港" },
+    { regex: /(澳门|mo|macao|macau)/i, flag: "🇲🇴", area: "澳门" },
+    { regex: /(台湾|tw|taiwan)/i, flag: "🇹🇼", area: "台湾" },
+    { regex: /(日本|jp|japan|tokyo|osaka)/i, flag: "🇯🇵", area: "日本" },
+    { regex: /(韩国|kr|korea|seoul)/i, flag: "🇰🇷", area: "韩国" },
+    { regex: /(新加坡|sg|singapore)/i, flag: "🇸🇬", area: "新加坡" },
+    { regex: /(美国|美國|us|united[\s-]?states|america|los[\s-]?angeles|san[\s-]?jose|silicon[\s-]?valley|new[\s-]?york)/i, flag: "🇺🇸", area: "美国" },
+    { regex: /(加拿大|ca|canada|toronto|vancouver)/i, flag: "🇨🇦", area: "加拿大" },
+    { regex: /(英国|英國|uk|united[\s-]?kingdom|britain|london)/i, flag: "🇬🇧", area: "英国" },
+    { regex: /(德国|德國|de|germany|frankfurt)/i, flag: "🇩🇪", area: "德国" },
+    { regex: /(法国|法國|fr|france|paris)/i, flag: "🇫🇷", area: "法国" },
+    { regex: /(荷兰|荷蘭|nl|netherlands|amsterdam)/i, flag: "🇳🇱", area: "荷兰" },
+    { regex: /(俄罗斯|俄羅斯|ru|russia|moscow)/i, flag: "🇷🇺", area: "俄罗斯" },
+    { regex: /(印度|in|india)/i, flag: "🇮🇳", area: "印度" },
+    { regex: /(土耳其|tr|turkey|istanbul)/i, flag: "🇹🇷", area: "土耳其" },
+    { regex: /(阿根廷|ar|argentina)/i, flag: "🇦🇷", area: "阿根廷" },
+    { regex: /(澳大利亚|澳大利亞|au|australia|sydney|melbourne)/i, flag: "🇦🇺", area: "澳大利亚" },
+    { regex: /(新西兰|新西蘭|nz|new[\s-]?zealand|auckland)/i, flag: "🇳🇿", area: "新西兰" },
+    { regex: /(泰国|泰國|th|thailand|bangkok)/i, flag: "🇹🇭", area: "泰国" },
+    { regex: /(菲律宾|菲律賓|ph|philippines|manila)/i, flag: "🇵🇭", area: "菲律宾" },
+    { regex: /(马来西亚|馬來西亞|my|malaysia|kuala[\s-]?lumpur)/i, flag: "🇲🇾", area: "马来西亚" },
+    { regex: /(越南|vn|vietnam|hanoi|ho[\s-]?chi[\s-]?minh)/i, flag: "🇻🇳", area: "越南" },
+    { regex: /(印度尼西亚|印度尼西亞|印尼|id|indonesia|jakarta)/i, flag: "🇮🇩", area: "印度尼西亚" },
+    { regex: /(阿联酋|阿聯酋|ae|uae|united[\s-]?arab[\s-]?emirates|dubai|abu[\s-]?dhabi)/i, flag: "🇦🇪", area: "阿联酋" },
+    { regex: /(沙特|sa|saudi|riyadh)/i, flag: "🇸🇦", area: "沙特" },
+    { regex: /(南非|za|south[\s-]?africa|johannesburg)/i, flag: "🇿🇦", area: "南非" },
+    { regex: /(巴西|br|brazil|sao[\s-]?paulo)/i, flag: "🇧🇷", area: "巴西" },
+    { regex: /(墨西哥|mx|mexico)/i, flag: "🇲🇽", area: "墨西哥" }
+  ];
+
+  function cleanName(name) {
+    return String(name || "")
+      .replace(/[\u{1F1E6}-\u{1F1FF}]{2}/gu, " ")
+      .replace(/[\u{1F300}-\u{1FAFF}]/gu, " ")
+      .replace(/[\(\[\【（].*?[\)\]\】）]/g, " ")
+      .replace(/[|｜•·★☆◆◇■□⚡️⚠️✨🚀🛰️]+/g, " ")
+      .replace(/\b(官网|官方|套餐|到期|流量|剩余|重置|测试|订阅|機場|机场|节点|節點|专用|專用|公益|优选|優選|线路|線路)\b/gi, " ")
+      .replace(/\bNO\.?\s*\d+\b/gi, " ")
+      .replace(/[_\-—–~]+/g, " ")
+      .replace(/[,:;]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function detectRegion(name) {
+    for (const rule of regionRules) {
+      if (rule.regex.test(name)) return rule;
+    }
+    return null;
+  }
+
+  function extractLineTag(name) {
+    const text = String(name || "");
+    if (/\bIEPL\b/i.test(text)) return "IEPL";
+    if (/\bIPLC\b/i.test(text)) return "IPLC";
+    if (/\bCN2\s*GIA\b/i.test(text)) return "CN2 GIA";
+    if (/\bCN2\b/i.test(text)) return "CN2";
+    if (/\bBGP\b/i.test(text)) return "BGP";
+    if (/\bAS9929\b/i.test(text)) return "AS9929";
+    if (/\bCMI\b/i.test(text)) return "CMI";
+    return "";
+  }
+
+  function extractSpeedTag(name) {
+    const match = String(name || "").match(/\b(\d+(?:\.\d+)?)x\b/i);
+    return match ? match[1] + "x" : "";
+  }
+
+  const recognized = [];
+
+  for (let i = 0; i < config.proxies.length; i++) {
+    const proxy = config.proxies[i];
+    const originalName = proxy && proxy.name ? String(proxy.name) : "";
+    const cleaned = cleanName(originalName);
+    const region = detectRegion(cleaned || originalName);
+
+    if (region) {
+      recognized.push({
+        index: i,
+        region,
+        cleaned,
+        originalName,
+        lineTag: extractLineTag(originalName),
+        speedTag: extractSpeedTag(originalName)
+      });
+    }
+  }
+
+  recognized.sort((a, b) => {
+    const ka = `${a.region.area} ${a.cleaned} ${a.originalName}`;
+    const kb = `${b.region.area} ${b.cleaned} ${b.originalName}`;
+    return ka.localeCompare(kb, "zh-Hans-CN");
+  });
+
+  const counters = {};
+  const renamedByIndex = {};
+
+  for (const item of recognized) {
+    const area = item.region.area;
+    counters[area] = (counters[area] || 0) + 1;
+    const no = String(counters[area]).padStart(3, "0");
+
+    const parts = [`${item.region.flag} ${area} ${no}`];
+    if (item.lineTag) parts.push(item.lineTag);
+    if (item.speedTag) parts.push(item.speedTag);
+
+    renamedByIndex[item.index] = parts.join(" ");
+  }
+
+  const used = new Set();
+  const nameMapping = {}; // oldName -> newName
+
+  for (let i = 0; i < config.proxies.length; i++) {
+    const proxy = config.proxies[i];
+    if (!proxy || !proxy.name) continue;
+
+    const oldName = proxy.name;
+
+    if (!renamedByIndex[i]) {
+      used.add(oldName);
+      continue;
+    }
+
+    let newName = renamedByIndex[i];
+    let finalName = newName;
+    let n = 2;
+
+    while (used.has(finalName)) {
+      finalName = `${newName} ${n}`;
+      n++;
+    }
+
+    proxy.name = finalName;
+    nameMapping[oldName] = finalName;
+    used.add(finalName);
+  }
+
+  // 同步更新 proxy-groups 里的 proxies 引用
+  if (Array.isArray(config["proxy-groups"])) {
+    for (const group of config["proxy-groups"]) {
+      if (!group || !Array.isArray(group.proxies)) continue;
+
+      group.proxies = group.proxies.map(name => {
+        return nameMapping[name] || name;
+      });
+    }
+  }
+
+  return config;
+}
+
+globalThis.main = main;
+globalThis.transform = main;
+globalThis.parse = main;
